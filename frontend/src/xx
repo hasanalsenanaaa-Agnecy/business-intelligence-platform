@@ -1,0 +1,662 @@
+import React, { useState } from 'react';
+import {
+  Container,
+  Typography,
+  Button,
+  Box,
+  Paper,
+  LinearProgress,
+  Alert,
+  Grid,
+  Table,
+  TableBody,
+  TableCell,
+  TableContainer,
+  TableHead,
+  TableRow,
+  Chip,
+} from '@mui/material';
+import { useNavigate } from 'react-router-dom';
+import CloudUploadIcon from '@mui/icons-material/CloudUpload';
+import DescriptionIcon from '@mui/icons-material/Description';
+import AnalyticsIcon from '@mui/icons-material/Analytics';
+import * as XLSX from 'xlsx';
+import Papa from 'papaparse';
+
+const Upload = () => {
+  const [file, setFile] = useState(null);
+  const [uploading, setUploading] = useState(false);
+  const [analysis, setAnalysis] = useState(null);
+  const [parsedData, setParsedData] = useState([]);
+  const [fileName, setFileName] = useState('');
+  const navigate = useNavigate();
+
+  const handleFileChange = (event) => {
+    const selectedFile = event.target.files[0];
+    if (selectedFile) {
+      setFile(selectedFile);
+      setFileName(selectedFile.name);
+      setAnalysis(null);
+      setParsedData([]);
+    }
+  };
+
+  const analyzeData = (data) => {
+    if (!data || data.length === 0) {
+      return null;
+    }
+
+    // تحليل البيانات الأساسية
+    let totalSales = 0;
+    let totalQuantity = 0;
+    let customers = new Set();
+    const productSales = {};
+    const customerPurchases = {};
+
+    data.forEach((row) => {
+      const amount = parseFloat(row.المبلغ || row.amount || row.sales || row.Sales || 0) || 0;
+      const quantity = parseInt(row.الكمية || row.quantity || row.Quantity || 1) || 1;
+      const product = row.المنتج || row.product || row.Product || 'غير معروف';
+      const customer = row.العميل || row.customer || row.Customer || 'غير معروف';
+
+      totalSales += amount;
+      totalQuantity += quantity;
+      customers.add(customer);
+
+      // إحصائيات المنتجات
+      productSales[product] = (productSales[product] || 0) + amount;
+
+      // إحصائيات العملاء
+      customerPurchases[customer] = (customerPurchases[customer] || 0) + amount;
+    });
+
+    // إيجاد أفضل المنتجات
+    const topProducts = Object.entries(productSales)
+      .sort(([, a], [, b]) => b - a)
+      .slice(0, 5);
+
+    // إيجاد أفضل العملاء
+    const topCustomers = Object.entries(customerPurchases)
+      .sort(([, a], [, b]) => b - a)
+      .slice(0, 5);
+
+    // تحليل هامش الربح (افتراضي)
+    const profitMargin = 0.25; // 25% كمثال
+    const estimatedCost = totalSales * (1 - profitMargin);
+    const estimatedProfit = totalSales - estimatedCost;
+
+    // توصيات ذكية
+    const recommendations = [];
+
+    if (topProducts.length > 0) {
+      const [topProduct, topProductSales] = topProducts[0];
+      recommendations.push(`ركز على "${topProduct}" - يمثل ${Math.round((topProductSales / totalSales) * 100)}% من مبيعاتك`);
+    }
+
+    if (topCustomers.length > 0) {
+      const [topCustomer, topCustomerPurchases] = topCustomers[0];
+      recommendations.push(`العميل "${topCustomer}" هو الأكثر قيمة - اشترى ${topCustomerPurchases.toLocaleString()} ريال`);
+    }
+
+    if (totalSales / data.length < 1000) {
+      recommendations.push('متوسط البيع منخفض - فكر في رفع سعر الوحدة أو بيع منتجات مجمعة');
+    }
+
+    if (customers.size < 10 && data.length > 50) {
+      recommendations.push('لديك عملاء قليلون لكن مخلصين - اعمل على برنامج ولاء للاحتفاظ بهم');
+    }
+
+    return {
+      summary: {
+        totalSales: Math.round(totalSales),
+        totalTransactions: data.length,
+        totalQuantity,
+        uniqueCustomers: customers.size,
+        averageSale: Math.round(totalSales / data.length),
+        averageQuantity: Math.round(totalQuantity / data.length),
+        estimatedProfit: Math.round(estimatedProfit),
+        profitMargin: Math.round(profitMargin * 100),
+      },
+      topProducts,
+      topCustomers,
+      recommendations,
+      sampleData: data.slice(0, 10), // عينة من البيانات لعرضها
+    };
+  };
+
+  const handleUpload = async () => {
+    if (!file) {
+      alert('الرجاء اختيار ملف أولاً');
+      return;
+    }
+
+    setUploading(true);
+
+    const reader = new FileReader();
+
+    reader.onload = async (e) => {
+      try {
+        const data = e.target.result;
+        let parsed = [];
+
+        if (fileName.endsWith('.xlsx') || fileName.endsWith('.xls')) {
+          // تحليل Excel
+          const workbook = XLSX.read(data, { type: 'binary' });
+          const sheetName = workbook.SheetNames[0];
+          const sheet = workbook.Sheets[sheetName];
+          parsed = XLSX.utils.sheet_to_json(sheet);
+        } else if (fileName.endsWith('.csv')) {
+          // تحليل CSV
+          const result = Papa.parse(data, {
+            header: true,
+            skipEmptyLines: true,
+            encoding: 'UTF-8',
+          });
+          parsed = result.data;
+        } else {
+          throw new Error('نوع الملف غير مدعوم. الرجاء استخدام Excel أو CSV');
+        }
+
+        setParsedData(parsed);
+
+        if (parsed.length === 0) {
+          throw new Error('الملف فارغ أو التنسيق غير صحيح');
+        }
+
+        // تحليل البيانات
+        const analysisResult = analyzeData(parsed);
+        setAnalysis(analysisResult);
+
+      } catch (error) {
+        console.error('خطأ في تحليل الملف:', error);
+        alert(`خطأ في تحليل الملف: ${error.message}`);
+      } finally {
+        setUploading(false);
+      }
+    };
+
+    if (fileName.endsWith('.csv')) {
+      reader.readAsText(file);
+    } else {
+      reader.readAsBinaryString(file);
+    }
+  };
+
+  const downloadTemplate = () => {
+    // بيانات مثال للقالب
+    const templateData = [
+      {
+        التاريخ: '2024-01-01',
+        المنتج: 'ساعة أبل',
+        الكمية: 2,
+        السعر: 1200,
+        المبلغ: 2400,
+        العميل: 'أحمد',
+      },
+      {
+        التاريخ: '2024-01-01',
+        المنتج: 'سماعة بلوتوث',
+        الكمية: 1,
+        السعر: 350,
+        المبلغ: 350,
+        العميل: 'محمد',
+      },
+      {
+        التاريخ: '2024-01-02',
+        المنتج: 'شاحن سريع',
+        الكمية: 3,
+        السعر: 120,
+        المبلغ: 360,
+        العميل: 'سارة',
+      },
+    ];
+
+    const worksheet = XLSX.utils.json_to_sheet(templateData);
+    const workbook = XLSX.utils.book_new();
+    XLSX.utils.book_append_sheet(workbook, worksheet, 'مبيعات');
+
+    // حفظ الملف
+    XLSX.writeFile(workbook, 'قالب_بيانات_المبيعات.xlsx');
+  };
+
+  return (
+    <Container maxWidth="lg">
+      <Box sx={{ py: 4 }}>
+        {/* العنوان */}
+        <Box sx={{ textAlign: 'center', mb: 4 }}>
+          <AnalyticsIcon sx={{ fontSize: 60, color: 'primary.main', mb: 2 }} />
+          <Typography variant="h3" gutterBottom fontWeight="bold">
+            📊 محلل البيانات الذكي
+          </Typography>
+          <Typography variant="h6" color="textSecondary" paragraph>
+            ارفع ملف مبيعاتك واحصل على تحليل كامل وأرباح إضافية
+          </Typography>
+        </Box>
+
+        {/* منطقة رفع الملف */}
+        <Paper
+          variant="outlined"
+          sx={{
+            p: 4,
+            textAlign: 'center',
+            border: '2px dashed',
+            borderColor: 'primary.main',
+            bgcolor: 'background.default',
+            mb: 4,
+          }}
+        >
+          <CloudUploadIcon sx={{ fontSize: 60, color: 'primary.main', mb: 2 }} />
+          
+          <input
+            accept=".xlsx,.xls,.csv"
+            style={{ display: 'none' }}
+            id="file-upload"
+            type="file"
+            onChange={handleFileChange}
+          />
+          
+          <Box sx={{ mb: 3 }}>
+            <label htmlFor="file-upload">
+              <Button
+                variant="contained"
+                component="span"
+                startIcon={<DescriptionIcon />}
+                size="large"
+                sx={{ mr: 2 }}
+              >
+                اختر ملف مبيعات
+              </Button>
+            </label>
+            
+            <Button
+              variant="outlined"
+              onClick={downloadTemplate}
+              size="large"
+            >
+              📥 حمل قالب جاهز
+            </Button>
+          </Box>
+
+          {fileName && (
+            <Box sx={{ mt: 2, p: 2, bgcolor: 'success.light', borderRadius: 1 }}>
+              <Typography variant="h6" color="success.dark">
+                ✅ الملف المختار: {fileName}
+              </Typography>
+              <Typography variant="body2">
+                حجم الملف: {(file.size / 1024).toFixed(2)} كيلوبايت
+                {parsedData.length > 0 && ` | ${parsedData.length} سجل`}
+              </Typography>
+            </Box>
+          )}
+
+          <Box sx={{ mt: 4 }}>
+            <Button
+              variant="contained"
+              onClick={handleUpload}
+              disabled={!file || uploading}
+              size="large"
+              sx={{ minWidth: 200 }}
+            >
+              {uploading ? (
+                <>
+                  <CircularProgress size={24} sx={{ mr: 1 }} />
+                  جاري التحليل...
+                </>
+              ) : (
+                '🔍 حلل بياناتي الآن'
+              )}
+            </Button>
+          </Box>
+
+          {uploading && (
+            <Box sx={{ width: '100%', mt: 2 }}>
+              <LinearProgress />
+              <Typography variant="body2" sx={{ mt: 1 }}>
+                جاري تحليل {parsedData.length} سجل...
+              </Typography>
+            </Box>
+          )}
+        </Paper>
+
+        {/* نتائج التحليل */}
+        {analysis && (
+          <>
+            {/* بطاقات النظرة العامة */}
+            <Grid container spacing={3} sx={{ mb: 4 }}>
+              {Object.entries(analysis.summary).map(([key, value]) => (
+                <Grid item xs={6} sm={4} md={3} key={key}>
+                  <Paper sx={{ p: 3, textAlign: 'center', height: '100%' }}>
+                    <Typography variant="body2" color="textSecondary" gutterBottom>
+                      {key === 'totalSales' && 'إجمالي المبيعات'}
+                      {key === 'totalTransactions' && 'عدد المعاملات'}
+                      {key === 'totalQuantity' && 'إجمالي الكمية'}
+                      {key === 'uniqueCustomers' && 'عملاء مختلفون'}
+                      {key === 'averageSale' && 'متوسط البيع'}
+                      {key === 'averageQuantity' && 'متوسط الكمية'}
+                      {key === 'estimatedProfit' && 'الربح المتوقع'}
+                      {key === 'profitMargin' && 'هامش الربح %'}
+                    </Typography>
+                    <Typography variant="h5" color="primary" fontWeight="bold">
+                      {typeof value === 'number' && (key.includes('Sales') || key.includes('Profit') || key.includes('averageSale'))
+                        ? `${value.toLocaleString()} ر.س`
+                        : key === 'profitMargin'
+                        ? `${value}%`
+                        : value.toLocaleString()}
+                    </Typography>
+                  </Paper>
+                </Grid>
+              ))}
+            </Grid>
+
+            {/* أفضل المنتجات والعملاء */}
+            <Grid container spacing={3} sx={{ mb: 4 }}>
+              <Grid item xs={12} md={6}>
+                <Paper sx={{ p: 3 }}>
+                  <Typography variant="h6" gutterBottom color="primary">
+                    🏆 أفضل 5 منتجات
+                  </Typography>
+                  <TableContainer>
+                    <Table size="small">
+                      <TableHead>
+                        <TableRow>
+                          <TableCell>المنتج</TableCell>
+                          <TableCell align="right">المبيعات</TableCell>
+                          <TableCell align="right">النسبة</TableCell>
+                        </TableRow>
+                      </TableHead>
+                      <TableBody>
+                        {analysis.topProducts.map(([product, sales], index) => (
+                          <TableRow key={product}>
+                            <TableCell>
+                              <Chip 
+                                label={`${index + 1}. ${product}`} 
+                                size="small" 
+                                color="primary" 
+                                variant="outlined"
+                              />
+                            </TableCell>
+                            <TableCell align="right">{sales.toLocaleString()} ر.س</TableCell>
+                            <TableCell align="right">
+                              {Math.round((sales / analysis.summary.totalSales) * 100)}%
+                            </TableCell>
+                          </TableRow>
+                        ))}
+                      </TableBody>
+                    </Table>
+                  </TableContainer>
+                </Paper>
+              </Grid>
+
+              <Grid item xs={12} md={6}>
+                <Paper sx={{ p: 3 }}>
+                  <Typography variant="h6" gutterBottom color="secondary">
+                    👑 أفضل 5 عملاء
+                  </Typography>
+                  <TableContainer>
+                    <Table size="small">
+                      <TableHead>
+                        <TableRow>
+                          <TableCell>العميل</TableCell>
+                          <TableCell align="right">المشتريات</TableCell>
+                          <TableCell align="right">النسبة</TableCell>
+                        </TableRow>
+                      </TableHead>
+                      <TableBody>
+                        {analysis.topCustomers.map(([customer, purchases], index) => (
+                          <TableRow key={customer}>
+                            <TableCell>
+                              <Chip 
+                                label={`${index + 1}. ${customer}`} 
+                                size="small" 
+                                color="secondary" 
+                                variant="outlined"
+                              />
+                            </TableCell>
+                            <TableCell align="right">{purchases.toLocaleString()} ر.س</TableCell>
+                            <TableCell align="right">
+                              {Math.round((purchases / analysis.summary.totalSales) * 100)}%
+                            </TableCell>
+                          </TableRow>
+                        ))}
+                      </TableBody>
+                    </Table>
+                  </TableContainer>
+                </Paper>
+              </Grid>
+            </Grid>
+
+            {/* التوصيات الذكية */}
+            <Paper sx={{ p: 4, mb: 4, bgcolor: 'info.light' }}>
+              <Typography variant="h5" gutterBottom color="info.dark">
+                💡 التوصيات الذكية لزيادة أرباحك
+              </Typography>
+              <Grid container spacing={2}>
+                {analysis.recommendations.map((rec, index) => (
+                  <Grid item xs={12} md={6} key={index}>
+                    <Alert 
+                      severity="info" 
+                      sx={{ 
+                        height: '100%',
+                        '& .MuiAlert-icon': { alignItems: 'center' }
+                      }}
+                    >
+                      <Typography variant="body1" fontWeight="medium">
+                        {rec}
+                      </Typography>
+                    </Alert>
+                  </Grid>
+                ))}
+              </Grid>
+            </Paper>
+
+            {/* عينة من البيانات */}
+            {analysis.sampleData.length > 0 && (
+              <Paper sx={{ p: 3, mb: 4 }}>
+                <Typography variant="h6" gutterBottom>
+                  📋 عينة من بياناتك ({analysis.sampleData.length} من {parsedData.length} سجل)
+                </Typography>
+                <TableContainer sx={{ maxHeight: 400 }}>
+                  <Table stickyHeader size="small">
+                    <TableHead>
+                      <TableRow>
+                        {Object.keys(analysis.sampleData[0]).map((key) => (
+                          <TableCell key={key}>
+                            <Typography fontWeight="bold">{key}</Typography>
+                          </TableCell>
+                        ))}
+                      </TableRow>
+                    </TableHead>
+                    <TableBody>
+                      {analysis.sampleData.map((row, index) => (
+                        <TableRow key={index}>
+                          {Object.values(row).map((value, cellIndex) => (
+                            <TableCell key={cellIndex}>
+                              {typeof value === 'number' 
+                                ? value.toLocaleString() 
+                                : value || '-'}
+                            </TableCell>
+                          ))}
+                        </TableRow>
+                      ))}
+                    </TableBody>
+                  </Table>
+                </TableContainer>
+              </Paper>
+            )}
+
+            {/* أزرار الإجراءات */}
+            <Box sx={{ textAlign: 'center', mt: 4 }}>
+              <Button
+                variant="contained"
+                size="large"
+                onClick={() => navigate('/dashboard')}
+                sx={{ mr: 2, mb: 2 }}
+              >
+                📈 انتقل إلى لوحة التحكم الكاملة
+              </Button>
+              <Button
+                variant="outlined"
+                size="large"
+                onClick={() => {
+                  setAnalysis(null);
+                  setParsedData([]);
+                  setFile(null);
+                  setFileName('');
+                }}
+                sx={{ mb: 2 }}
+              >
+                🔄 حلل ملفاً آخر
+              </Button>
+            </Box>
+          </>
+        )}
+
+        {/* دليل التنسيق */}
+        {!analysis && (
+          <Paper sx={{ p: 4, mt: 4, bgcolor: 'grey.50' }}>
+            <Typography variant="h5" gutterBottom color="primary">
+              📝 كيف تعد ملف مبيعاتك؟
+            </Typography>
+            
+            <Grid container spacing={3}>
+              <Grid item xs={12} md={6}>
+                <Paper sx={{ p: 3, height: '100%' }}>
+                  <Typography variant="h6" gutterBottom>
+                    ✅ الصيغة المثالية
+                  </Typography>
+                  <Typography paragraph>
+                    استخدم هذه الأعمدة في Excel أو CSV:
+                  </Typography>
+                  <Box component="ul" sx={{ pl: 2 }}>
+                    <li><strong>التاريخ:</strong> تاريخ المعاملة</li>
+                    <li><strong>المنتج:</strong> اسم المنتج أو الخدمة</li>
+                    <li><strong>الكمية:</strong> عدد الوحدات المباعة</li>
+                    <li><strong>السعر:</strong> سعر الوحدة</li>
+                    <li><strong>المبلغ:</strong> الإجمالي (الكمية × السعر)</li>
+                    <li><strong>العميل:</strong> اسم العميل</li>
+                  </Box>
+                </Paper>
+              </Grid>
+
+              <Grid item xs={12} md={6}>
+                <Paper sx={{ p: 3, height: '100%' }}>
+                  <Typography variant="h6" gutterBottom>
+                    💡 نصائح مهمة
+                  </Typography>
+                  <Box component="ul" sx={{ pl: 2 }}>
+                    <li>احفظ الملف بصيغة <strong>.xlsx أو .csv</strong></li>
+                    <li>استخدم <strong>تنسيق التواريخ</strong> الصحيح</li>
+                    <li>تأكد أن <strong>الأعمدة لها عناوين</strong></li>
+                    <li>لا تترك <strong>صفوفاً فارغة</strong></li>
+                    <li>يمكنك استخدام <strong>الأسماء الإنجليزية</strong> أيضاً</li>
+                  </Box>
+                </Paper>
+              </Grid>
+            </Grid>
+
+            <Box sx={{ textAlign: 'center', mt: 3 }}>
+              <Button
+                variant="contained"
+                onClick={downloadTemplate}
+                startIcon={<DescriptionIcon />}
+                size="large"
+              >
+                📥 حمل ملف مثال جاهز
+              </Button>
+            </Box>
+          </Paper>
+        )}
+      </Box>
+    </Container>
+  );
+};
+
+// مكون Progress للعرض
+const CircularProgress = ({ size, sx }) => (
+  <Box
+    sx={{
+      display: 'inline-flex',
+      alignItems: 'center',
+      justifyContent: 'center',
+      ...sx,
+    }}
+  >
+    <Box
+      sx={{
+        width: size,
+        height: size,
+        borderRadius: '50%',
+        border: '2px solid',
+        borderColor: 'primary.light',
+        borderTopColor: 'primary.main',
+        animation: 'spin 1s linear infinite',
+        '@keyframes spin': {
+          '0%': { transform: 'rotate(0deg)' },
+          '100%': { transform: 'rotate(360deg)' },
+        },
+      }}
+    />
+  </Box>
+);
+
+// في Upload.js أضف:
+const saveAnalysis = (analysis, fileName) => {
+  const analyses = JSON.parse(localStorage.getItem('user-analyses') || '[]');
+  analyses.push({
+    id: Date.now(),
+    date: new Date().toLocaleString('ar-SA'),
+    fileName,
+    summary: analysis.summary,
+    topProducts: analysis.topProducts.slice(0, 3),
+    recommendations: analysis.recommendations.slice(0, 3)
+  });
+  localStorage.setItem('user-analyses', JSON.stringify(analyses));
+};
+
+// في Dashboard.js أضف:
+const [analysesHistory, setAnalysesHistory] = useState([]);
+useEffect(() => {
+  const saved = JSON.parse(localStorage.getItem('user-analyses') || '[]');
+  setAnalysesHistory(saved);
+}, []);
+
+export default Upload;
+
+import { uploadFileToBackend } from '../services/api';
+
+// وغير دالة handleUpload لتصبح:
+const handleUpload = async () => {
+  if (!file) {
+    alert('الرجاء اختيار ملف أولاً');
+    return;
+  }
+
+  setUploading(true);
+  setError('');
+
+  try {
+    // استخدام Backend الجديد
+    const result = await uploadFileToBackend(
+      file, 
+      user?.id || 'demo-user',
+      user?.email || 'demo@example.com'
+    );
+
+    if (result.success) {
+      setAnalysis(result.analysis);
+      // حفظ محلي للسرعة
+      localStorage.setItem('last-analysis', JSON.stringify(result.analysis));
+    } else {
+      setError(result.error || 'حدث خطأ في التحليل');
+    }
+  } catch (err) {
+    console.error('Upload error:', err);
+    setError(err.message || 'تعذر الاتصال بالخادم');
+    
+    // استخدام التحليل المحلي كبديل
+    const mockAnalysis = analyzeDataLocally(); // دالة محلية
+    setAnalysis(mockAnalysis);
+  } finally {
+    setUploading(false);
+  }
+};
