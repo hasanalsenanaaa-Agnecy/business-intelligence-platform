@@ -79,4 +79,91 @@ export const checkServerHealth = async () => {
   }
 };
 
+// في نهاية api.js أضف:
+
+// Auth API functions
+export const authAPI = {
+  // تسجيل مستخدم جديد
+  register: (userData) => {
+    // مؤقتاً: نستخدم Backend demo حتى ينشر
+    return Promise.resolve({
+      data: {
+        success: true,
+        message: 'التسجيل يعمل (وضع التطوير)',
+        data: {
+          _id: 'demo-' + Date.now(),
+          name: userData.name,
+          email: userData.email,
+          company: userData.company || '',
+          plan: 'free',
+          analyticsCount: 0,
+          token: 'demo-token-' + Date.now()
+        }
+      }
+    });
+  },
+  
+  // تسجيل الدخول
+  login: (credentials) => {
+    // مؤقتاً: نستخدم Backend demo حتى ينشر
+    return Promise.resolve({
+      data: {
+        success: true,
+        message: 'تسجيل الدخول يعمل (وضع التطوير)',
+        data: {
+          _id: 'demo-123',
+          name: credentials.email.split('@')[0],
+          email: credentials.email,
+          company: 'شركة تجريبية',
+          plan: 'free',
+          analyticsCount: 5,
+          token: 'demo-token-123'
+        }
+      }
+    });
+  },
+  
+  // بيانات المستخدم الحالي
+  getMe: () => {
+    // مؤقتاً
+    return Promise.resolve({
+      data: {
+        success: true,
+        data: {
+          _id: 'demo-123',
+          name: 'مستخدم تجريبي',
+          email: 'demo@example.com',
+          plan: 'free',
+          analyticsCount: 5
+        }
+      }
+    });
+  },
+  
+  // تسجيل الخروج
+  logout: () => {
+    return Promise.resolve({
+      data: { success: true, message: 'تم تسجيل الخروج' }
+    });
+  }
+};
+
+// أو إذا كان Backend يعمل، استخدم هذا:
+/*
+import axios from 'axios';
+
+const API_BASE_URL = process.env.REACT_APP_API_URL || 'http://localhost:10000/api';
+
+const api = axios.create({
+  baseURL: API_BASE_URL
+});
+
+export const authAPI = {
+  register: (userData) => api.post('/auth/register', userData),
+  login: (credentials) => api.post('/auth/login', credentials),
+  getMe: () => api.get('/auth/me'),
+  logout: () => api.post('/auth/logout')
+};
+*/
+
 export default api;

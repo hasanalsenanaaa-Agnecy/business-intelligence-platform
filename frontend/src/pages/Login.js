@@ -1,412 +1,209 @@
 import React, { useState } from 'react';
 import {
   Container,
+  Paper,
   TextField,
   Button,
-  Paper,
   Typography,
-  Alert,
   Box,
+  Alert,
   Link,
   CircularProgress,
-  Card,
-  CardContent,
-  Grid,
-  Fade,
-  Zoom,
+  Tabs,
+  Tab
 } from '@mui/material';
 import { useNavigate } from 'react-router-dom';
-import LockOpenIcon from '@mui/icons-material/LockOpen';
-import PersonAddIcon from '@mui/icons-material/PersonAdd';
-import EmailIcon from '@mui/icons-material/Email';
-import KeyIcon from '@mui/icons-material/Key';
-import RocketLaunchIcon from '@mui/icons-material/RocketLaunch';
 
-const Login = ({ onLogin }) => {
-  const [email, setEmail] = useState('');
-  const [password, setPassword] = useState('');
-  const [error, setError] = useState('');
+const Login = ({ onLogin, onRegister }) => {
+  const [activeTab, setActiveTab] = useState(0);
+  const [loginData, setLoginData] = useState({ email: '', password: '' });
+  const [registerData, setRegisterData] = useState({
+    name: '',
+    email: '',
+    password: '',
+    confirmPassword: '',
+    company: ''
+  });
   const [loading, setLoading] = useState(false);
-  const [isSignUp, setIsSignUp] = useState(false);
+  const [error, setError] = useState('');
   const navigate = useNavigate();
 
-  const handleSubmit = async (e) => {
+  const handleLogin = async (e) => {
     e.preventDefault();
-    setError('');
     setLoading(true);
-
-    try {
-      // تحقق بسيط من صحة البيانات
-      if (!email.trim()) {
-        throw new Error('البريد الإلكتروني مطلوب');
-      }
-      
-      if (!email.includes('@') || !email.includes('.')) {
-        throw new Error('البريد الإلكتروني غير صحيح');
-      }
-      
-      if (!password.trim()) {
-        throw new Error('كلمة المرور مطلوبة');
-      }
-      
-      if (password.length < 3) {
-        throw new Error('كلمة المرور يجب أن تكون 3 أحرف على الأقل');
-      }
-
-      // تسجيل الدخول/التسجيل
-      const userData = onLogin(email);
-      
-      // تأخير بسيط لمحاكاة الشبكة
-      setTimeout(() => {
-        setLoading(false);
-        navigate('/dashboard');
-      }, 800);
-
-    } catch (err) {
-      setError(err.message);
-      setLoading(false);
+    setError('');
+    
+    const result = await onLogin(loginData.email, loginData.password);
+    
+    if (result.success) {
+      navigate('/dashboard');
+    } else {
+      setError(result.error);
     }
+    setLoading(false);
   };
 
-  const handleQuickLogin = (testEmail, testName) => {
-    setEmail(testEmail);
-    setPassword('123456');
-    const userData = onLogin(testEmail);
-    navigate('/dashboard');
+  const handleRegister = async (e) => {
+    e.preventDefault();
+    
+    if (registerData.password !== registerData.confirmPassword) {
+      setError('كلمات المرور غير متطابقة');
+      return;
+    }
+    
+    setLoading(true);
+    setError('');
+    
+    const userData = {
+      name: registerData.name,
+      email: registerData.email,
+      password: registerData.password,
+      company: registerData.company
+    };
+    
+    const result = await onRegister(userData);
+    
+    if (result.success) {
+      navigate('/dashboard');
+    } else {
+      setError(result.error);
+    }
+    setLoading(false);
   };
-
-  const demoAccounts = [
-    {
-      email: 'demo@business-intel.com',
-      name: 'حساب تجريبي',
-      role: '👤 زائر',
-      color: '#00A859',
-    },
-    {
-      email: 'owner@store.com',
-      name: 'صاحب متجر',
-      role: '🏪 بائع',
-      color: '#2196F3',
-    },
-    {
-      email: 'manager@company.com',
-      name: 'مدير مبيعات',
-      role: '📈 مدير',
-      color: '#FF9800',
-    },
-  ];
 
   return (
-    <Fade in={true} timeout={1000}>
-      <Container maxWidth="lg" sx={{ py: { xs: 2, md: 4 } }}>
-        {/* العنوان */}
-        <Box sx={{ 
-          textAlign: 'center', 
-          mb: { xs: 4, md: 6 },
-          mt: { xs: 2, md: 4 }
-        }}>
-          <Zoom in={true} timeout={800}>
-            <Box sx={{ display: 'inline-flex', mb: 3 }}>
-              <RocketLaunchIcon sx={{ 
-                fontSize: { xs: 50, md: 60 }, 
-                color: 'primary.main',
-                animation: 'float 3s ease-in-out infinite',
-                '@keyframes float': {
-                  '0%, 100%': { transform: 'translateY(0)' },
-                  '50%': { transform: 'translateY(-10px)' },
-                }
-              }} />
-            </Box>
-          </Zoom>
-          
-          <Typography variant="h2" gutterBottom fontWeight="bold" color="primary" sx={{ fontSize: { xs: '2rem', md: '3rem' } }}>
-            {isSignUp ? '🎯 ابدأ رحلتك الآن' : '🔐 مرحباً بعودتك'}
-          </Typography>
-          <Typography variant="h5" color="text.secondary" sx={{ fontSize: { xs: '1rem', md: '1.5rem' } }}>
-            {isSignUp 
-              ? 'سجل حساباً جديداً واستمتع بتحليل بياناتك مجاناً' 
-              : 'سجل دخول لمتابعة تحليلاتك واستكشاف فرص النمو'}
-          </Typography>
+    <Container maxWidth="sm" sx={{ mt: 8 }}>
+      <Paper elevation={3} sx={{ p: 4, borderRadius: 2 }}>
+        <Typography variant="h4" align="center" gutterBottom>
+          منصة ذكاء الأعمال
+        </Typography>
+        
+        <Typography variant="body1" align="center" color="textSecondary" paragraph>
+          حلل بياناتك واتخذ قرارات ذكية
+        </Typography>
+
+        <Box sx={{ borderBottom: 1, borderColor: 'divider', mb: 3 }}>
+          <Tabs value={activeTab} onChange={(e, newValue) => setActiveTab(newValue)} centered>
+            <Tab label="تسجيل الدخول" />
+            <Tab label="إنشاء حساب" />
+          </Tabs>
         </Box>
 
-        <Grid container spacing={4}>
-          {/* نموذج التسجيل */}
-          <Grid item xs={12} md={6}>
-            <Zoom in={true} timeout={1000}>
-              <Card elevation={3} sx={{ 
-                borderRadius: 3,
-                height: '100%',
-                border: 1,
-                borderColor: 'divider'
-              }}>
-                <CardContent sx={{ p: { xs: 3, md: 4 } }}>
-                  <Box sx={{ textAlign: 'center', mb: 3 }}>
-                    {isSignUp ? (
-                      <PersonAddIcon sx={{ 
-                        fontSize: { xs: 50, md: 60 }, 
-                        color: 'primary.main' 
-                      }} />
-                    ) : (
-                      <LockOpenIcon sx={{ 
-                        fontSize: { xs: 50, md: 60 }, 
-                        color: 'primary.main' 
-                      }} />
-                    )}
-                  </Box>
+        {error && (
+          <Alert severity="error" sx={{ mb: 2 }}>
+            {error}
+          </Alert>
+        )}
 
-                  {error && (
-                    <Alert 
-                      severity="error" 
-                      sx={{ 
-                        mb: 3,
-                        borderRadius: 2
-                      }}
-                      onClose={() => setError('')}
-                    >
-                      {error}
-                    </Alert>
-                  )}
+        {/* تسجيل الدخول */}
+        {activeTab === 0 && (
+          <Box component="form" onSubmit={handleLogin}>
+            <TextField
+              fullWidth
+              label="البريد الإلكتروني"
+              type="email"
+              value={loginData.email}
+              onChange={(e) => setLoginData({...loginData, email: e.target.value})}
+              margin="normal"
+              required
+            />
 
-                  <form onSubmit={handleSubmit}>
-                    <Box sx={{ mb: 2 }}>
-                      <TextField
-                        fullWidth
-                        label="البريد الإلكتروني"
-                        type="email"
-                        value={email}
-                        onChange={(e) => setEmail(e.target.value)}
-                        disabled={loading}
-                        sx={{ mb: 2 }}
-                        InputProps={{
-                          startAdornment: (
-                            <EmailIcon sx={{ mr: 1, color: 'text.secondary' }} />
-                          ),
-                        }}
-                      />
-                      
-                      <TextField
-                        fullWidth
-                        label="كلمة المرور"
-                        type="password"
-                        value={password}
-                        onChange={(e) => setPassword(e.target.value)}
-                        disabled={loading}
-                        helperText="أي كلمة مرور تناسبك للتجربة"
-                        InputProps={{
-                          startAdornment: (
-                            <KeyIcon sx={{ mr: 1, color: 'text.secondary' }} />
-                          ),
-                        }}
-                      />
-                    </Box>
+            <TextField
+              fullWidth
+              label="كلمة المرور"
+              type="password"
+              value={loginData.password}
+              onChange={(e) => setLoginData({...loginData, password: e.target.value})}
+              margin="normal"
+              required
+            />
 
-                    <Button
-                      fullWidth
-                      variant="contained"
-                      size="large"
-                      type="submit"
-                      disabled={loading || !email || !password}
-                      sx={{ 
-                        mt: 2, 
-                        mb: 2, 
-                        py: 1.5,
-                        borderRadius: 2,
-                        fontSize: '1.1rem'
-                      }}
-                    >
-                      {loading ? (
-                        <CircularProgress size={24} color="inherit" />
-                      ) : isSignUp ? (
-                        'إنشاء حساب جديد'
-                      ) : (
-                        'تسجيل الدخول'
-                      )}
-                    </Button>
+            <Button
+              type="submit"
+              fullWidth
+              variant="contained"
+              size="large"
+              sx={{ mt: 3, mb: 2 }}
+              disabled={loading}
+            >
+              {loading ? <CircularProgress size={24} /> : 'تسجيل الدخول'}
+            </Button>
+          </Box>
+        )}
 
-                    <Box sx={{ textAlign: 'center', mt: 2 }}>
-                      <Link
-                        component="button"
-                        type="button"
-                        onClick={() => {
-                          setIsSignUp(!isSignUp);
-                          setError('');
-                        }}
-                        sx={{ 
-                          cursor: 'pointer',
-                          textDecoration: 'none',
-                          '&:hover': { textDecoration: 'underline' }
-                        }}
-                        disabled={loading}
-                      >
-                        {isSignUp 
-                          ? 'لديك حساب بالفعل؟ سجل دخول' 
-                          : 'لا تملك حساباً؟ سجل الآن'}
-                      </Link>
-                    </Box>
-                  </form>
+        {/* إنشاء حساب */}
+        {activeTab === 1 && (
+          <Box component="form" onSubmit={handleRegister}>
+            <TextField
+              fullWidth
+              label="الاسم الكامل"
+              value={registerData.name}
+              onChange={(e) => setRegisterData({...registerData, name: e.target.value})}
+              margin="normal"
+              required
+            />
 
-                  {/* معلومات إضافية */}
-                  <Box sx={{ 
-                    mt: 4, 
-                    pt: 3, 
-                    borderTop: 1, 
-                    borderColor: 'divider',
-                    textAlign: 'center'
-                  }}>
-                    <Typography variant="body2" color="text.secondary">
-                      🔒 بياناتك تبقى خاصة على جهازك
-                    </Typography>
-                    <Typography variant="body2" color="text.secondary" sx={{ mt: 0.5 }}>
-                      💡 يمكنك مسح البيانات متى شئت من إعدادات المتصفح
-                    </Typography>
-                  </Box>
-                </CardContent>
-              </Card>
-            </Zoom>
-          </Grid>
+            <TextField
+              fullWidth
+              label="البريد الإلكتروني"
+              type="email"
+              value={registerData.email}
+              onChange={(e) => setRegisterData({...registerData, email: e.target.value})}
+              margin="normal"
+              required
+            />
 
-          {/* خيارات سريعة */}
-          <Grid item xs={12} md={6}>
-            <Zoom in={true} timeout={1200}>
-              <Card elevation={3} sx={{ 
-                borderRadius: 3,
-                height: '100%',
-                border: 1,
-                borderColor: 'divider',
-                bgcolor: 'grey.50'
-              }}>
-                <CardContent sx={{ 
-                  p: { xs: 3, md: 4 },
-                  height: '100%', 
-                  display: 'flex', 
-                  flexDirection: 'column' 
-                }}>
-                  <Typography variant="h4" gutterBottom color="primary" sx={{ fontSize: { xs: '1.5rem', md: '2rem' } }}>
-                    ⚡ دخول سريع للتجربة
-                  </Typography>
-                  
-                  <Typography paragraph color="text.secondary" sx={{ mb: 4 }}>
-                    جرب المنصة مباشرة بدون تسجيل مفصل. اختر أحد الحسابات التجريبية:
-                  </Typography>
+            <TextField
+              fullWidth
+              label="كلمة المرور"
+              type="password"
+              value={registerData.password}
+              onChange={(e) => setRegisterData({...registerData, password: e.target.value})}
+              margin="normal"
+              required
+            />
 
-                  <Box sx={{ flexGrow: 1, display: 'flex', flexDirection: 'column', gap: 2 }}>
-                    {demoAccounts.map((account, index) => (
-                      <Card 
-                        key={index}
-                        sx={{ 
-                          cursor: 'pointer',
-                          transition: 'all 0.3s',
-                          '&:hover': {
-                            transform: 'translateX(8px)',
-                            boxShadow: 4
-                          },
-                          borderLeft: `4px solid ${account.color}`
-                        }}
-                        onClick={() => handleQuickLogin(account.email, account.name)}
-                      >
-                        <CardContent sx={{ p: 2.5 }}>
-                          <Grid container alignItems="center" spacing={2}>
-                            <Grid item xs={8}>
-                              <Typography variant="h6" fontWeight="bold">
-                                {account.name}
-                              </Typography>
-                              <Typography variant="body2" color="text.secondary">
-                                {account.email}
-                              </Typography>
-                            </Grid>
-                            <Grid item xs={4} sx={{ textAlign: 'right' }}>
-                              <Typography variant="body1" color={account.color} fontWeight="bold">
-                                {account.role}
-                              </Typography>
-                            </Grid>
-                          </Grid>
-                        </CardContent>
-                      </Card>
-                    ))}
-                  </Box>
+            <TextField
+              fullWidth
+              label="تأكيد كلمة المرور"
+              type="password"
+              value={registerData.confirmPassword}
+              onChange={(e) => setRegisterData({...registerData, confirmPassword: e.target.value})}
+              margin="normal"
+              required
+            />
 
-                  {/* خيارات إضافية */}
-                  <Box sx={{ mt: 'auto', pt: 4 }}>
-                    <Grid container spacing={2}>
-                      <Grid item xs={12} sm={6}>
-                        <Button
-                          fullWidth
-                          variant="outlined"
-                          size="large"
-                          onClick={() => navigate('/')}
-                          sx={{ 
-                            py: 1.5,
-                            borderRadius: 2
-                          }}
-                        >
-                          👀 تصفح كزائر
-                        </Button>
-                      </Grid>
-                      <Grid item xs={12} sm={6}>
-                        <Button
-                          fullWidth
-                          variant="outlined"
-                          size="large"
-                          onClick={() => {
-                            setEmail('');
-                            setPassword('');
-                            setIsSignUp(true);
-                          }}
-                          sx={{ 
-                            py: 1.5,
-                            borderRadius: 2
-                          }}
-                        >
-                          📝 حساب جديد كامل
-                        </Button>
-                      </Grid>
-                    </Grid>
-                  </Box>
+            <TextField
+              fullWidth
+              label="اسم الشركة (اختياري)"
+              value={registerData.company}
+              onChange={(e) => setRegisterData({...registerData, company: e.target.value})}
+              margin="normal"
+            />
 
-                  {/* تذكير */}
-                  <Box sx={{ 
-                    mt: 4, 
-                    pt: 3, 
-                    borderTop: 1, 
-                    borderColor: 'divider',
-                    textAlign: 'center'
-                  }}>
-                    <Typography variant="body2" color="text.secondary">
-                      💡 جميع الحسابات التجريبية تستخدم كلمة المرور: 123456
-                    </Typography>
-                  </Box>
-                </CardContent>
-              </Card>
-            </Zoom>
-          </Grid>
-        </Grid>
+            <Button
+              type="submit"
+              fullWidth
+              variant="contained"
+              size="large"
+              sx={{ mt: 3, mb: 2 }}
+              disabled={loading}
+            >
+              {loading ? <CircularProgress size={24} /> : 'إنشاء حساب'}
+            </Button>
+          </Box>
+        )}
 
-        {/* فوتر الصفحة */}
-        <Box sx={{ 
-          mt: 6, 
-          textAlign: 'center',
-          pt: 4,
-          borderTop: 1,
-          borderColor: 'divider'
-        }}>
-          <Typography variant="body1" color="text.secondary" paragraph>
-            ✅ لا نحتفظ بكلمات المرور - كل شيء مخزن محلياً على جهازك
+        <Box textAlign="center" sx={{ mt: 2 }}>
+          <Typography variant="body2" color="textSecondary">
+            بالاستمرار، فإنك توافق على{' '}
+            <Link href="#" underline="hover">شروط الخدمة</Link>{' '}
+            و{' '}
+            <Link href="#" underline="hover">سياسة الخصوصية</Link>
           </Typography>
-          <Typography variant="body2" color="text.secondary">
-            📱 متوافق مع جميع الأجهزة | 🇸🇦 صمم خصيصاً للسوق السعودي
-          </Typography>
-          
-          <Button
-            variant="text"
-            size="small"
-            onClick={() => navigate('/')}
-            sx={{ mt: 2 }}
-          >
-            ← العودة للصفحة الرئيسية
-          </Button>
         </Box>
-      </Container>
-    </Fade>
+      </Paper>
+    </Container>
   );
 };
 

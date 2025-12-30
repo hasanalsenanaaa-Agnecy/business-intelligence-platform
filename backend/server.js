@@ -1,7 +1,8 @@
 const express = require('express');
 const cors = require('cors');
 const uploadRoutes = require('./routes/uploadRoutes');
-
+const mongoose = require('mongoose');
+const authRoutes = require('./routes/authRoutes');
 const app = express();
 
 // Middleware
@@ -21,6 +22,20 @@ app.get('/api/health', (req, res) => {
     nodeVersion: process.version
   });
 });
+
+// الاتصال بـ MongoDB (أضف في .env)
+mongoose.connect(process.env.MONGODB_URI || 'mongodb://localhost:27017/business-intelligence', {
+  useNewUrlParser: true,
+  useUnifiedTopology: true
+})
+.then(() => console.log('✅ MongoDB connected'))
+.catch(err => console.error('MongoDB connection error:', err));
+
+// استخدام routes
+app.use('/api/auth', authRoutes);
+
+// حماية المسارات (مثال)
+app.use('/api/upload', authMiddleware.protect, uploadRoutes);
 
 // ✅ الصفحة الرئيسية
 app.get('/', (req, res) => {
